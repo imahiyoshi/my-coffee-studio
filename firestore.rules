@@ -1,0 +1,94 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+             (request.resource.data[field] is string &&
+              request.resource.data[field].size() >= minLen &&
+              request.resource.data[field].size() <= maxLen);
+    }
+
+    function isValidOptionalNumber(field, minVal, maxVal) {
+      return !(field in request.resource.data) ||
+             (request.resource.data[field] is number &&
+              request.resource.data[field] >= minVal &&
+              request.resource.data[field] <= maxVal);
+    }
+
+    function isValidEmailList(listData) {
+      return listData is list && listData.size() <= 50;
+    }
+
+    function isValidRecord(data) {
+      return hasRequiredFields(['userId', 'createdAt', 'beansName', 'mode']) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.createdAt is timestamp &&
+             data.beansName is string && data.beansName.size() > 0 && data.beansName.size() < 100 &&
+             data.mode in ['twinbird', 'other'] &&
+             (!('roastLevel' in data) || data.roastLevel in ['Light', 'Medium-Light', 'Medium', 'Medium-Dark', 'Dark']) &&
+             isValidOptionalNumber('rating', 1, 5) &&
+             isValidOptionalString('tastingNotes', 0, 1000) &&
+             isValidOptionalString('imageUrl', 0, 1048576) &&
+             (!('tbTemperature' in data) || data.tbTemperature in ['83', '90']) &&
+             (!('tbGrindSize' in data) || data.tbGrindSize in ['coarse', 'medium', 'fine']) &&
+             isValidOptionalNumber('tbCups', 1, 6) &&
+             isValidOptionalString('customMethod', 0, 100) &&
+             isValidOptionalNumber('customTemperature', 0, 100) &&
+             isValidOptionalString('customGrindSize', 0, 100) &&
+             isValidOptionalNumber('customWaterAmount', 0, 5000) &&
+             isValidOptionalNumber('customBeansAmount', 0, 500) &&
+             (!('sharedWith' in data) || isValidEmailList(data.sharedWith));
+    }
+
+    function isCollaborator(ownerId) {
+      let ownerDoc = get(/databases/$(database)/documents/users/$(ownerId));
+      return ownerDoc != null && request.auth.token.email != null && request.auth.token.email in ownerDoc.data.collaborators;
+    }
+
+    match /users/{userId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated() && request.auth.token.email != null && request.auth.token.email in resource.data.collaborators;
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /records/{recordId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid
+      ) && isValidRecord(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isValidRecord(request.resource.data) && uidNotModified();
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

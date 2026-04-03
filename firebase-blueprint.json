@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "CoffeeRecord": {
+      "title": "CoffeeRecord",
+      "description": "A record of a brewed coffee, tailored for Twinbird or custom methods.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who created the record."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the record was created."
+        },
+        "beansName": {
+          "type": "string",
+          "description": "Name of the coffee beans."
+        },
+        "roastLevel": {
+          "type": "string",
+          "enum": ["Light", "Medium-Light", "Medium", "Medium-Dark", "Dark"],
+          "description": "Roast level of the beans."
+        },
+        "rating": {
+          "type": "number",
+          "description": "Rating out of 5."
+        },
+        "tastingNotes": {
+          "type": "string",
+          "description": "Notes about the taste."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Base64 encoded image data."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["twinbird", "other"],
+          "description": "Brewing mode used."
+        },
+        "tbTemperature": {
+          "type": "string",
+          "enum": ["83", "90"],
+          "description": "Twinbird specific temperature."
+        },
+        "tbGrindSize": {
+          "type": "string",
+          "enum": ["coarse", "medium", "fine"],
+          "description": "Twinbird specific grind size."
+        },
+        "tbCups": {
+          "type": "number",
+          "description": "Twinbird specific number of cups (1-6)."
+        },
+        "customMethod": {
+          "type": "string",
+          "description": "Custom brewing method."
+        },
+        "customTemperature": {
+          "type": "number",
+          "description": "Custom temperature in Celsius."
+        },
+        "customGrindSize": {
+          "type": "string",
+          "description": "Custom grind size."
+        },
+        "customWaterAmount": {
+          "type": "number",
+          "description": "Custom water amount in ml."
+        },
+        "customBeansAmount": {
+          "type": "number",
+          "description": "Custom beans amount in grams."
+        }
+      },
+      "required": ["userId", "createdAt", "beansName", "mode"]
+    }
+  },
+  "firestore": {
+    "/records/{recordId}": {
+      "schema": {
+        "$ref": "#/entities/CoffeeRecord"
+      },
+      "description": "Coffee brewing records."
+    }
+  }
+}
