@@ -58,7 +58,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  
+  console.group('🔥 Firestore Error');
+  console.error('Operation:', operationType);
+  console.error('Path:', path);
+  console.error('Message:', errInfo.error);
+  console.error('User ID:', errInfo.authInfo.userId);
+  console.groupEnd();
+
   throw new Error(JSON.stringify(errInfo));
 }
 
