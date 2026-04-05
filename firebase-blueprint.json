@@ -73,6 +73,15 @@
         "customBeansAmount": {
           "type": "number",
           "description": "Custom beans amount in grams."
+        },
+        "aiAdvice": {
+          "type": "string",
+          "description": "AI generated brewing advice."
+        },
+        "aiStatus": {
+          "type": "string",
+          "enum": ["pending", "completed", "error"],
+          "description": "Status of AI advice generation."
         }
       },
       "required": ["userId", "createdAt", "beansName", "mode"]

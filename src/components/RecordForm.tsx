@@ -131,6 +131,7 @@ export default function RecordForm({ user }: { user: User }) {
         userId: originalUserId || user.uid,
         beansName,
         mode,
+        aiStatus: 'pending',
         ...(roastLevel && { roastLevel }),
         ...(rating > 0 && { rating }),
         ...(tastingNotes && { tastingNotes }),

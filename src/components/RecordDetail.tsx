@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { CoffeeRecord } from '../types';
-import { ArrowLeft, Edit2, Trash2, Image as ImageIcon, Heart, X, AlertTriangle } from 'lucide-react';
+import { generateCoffeeAdvice } from '../services/aiService';
+import { ArrowLeft, Edit2, Trash2, Image as ImageIcon, Heart, X, AlertTriangle, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import Logo from './Logo';
 import { format } from 'date-fns';
 
@@ -15,26 +16,52 @@ export default function RecordDetail({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   useEffect(() => {
     if (id) {
-      const fetchRecord = async () => {
-        try {
-          const docRef = doc(db, 'records', id);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const data = { id: docSnap.id, ...docSnap.data() } as CoffeeRecord;
-            setRecord(data);
+      const docRef = doc(db, 'records', id);
+      const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = { id: docSnap.id, ...docSnap.data() } as CoffeeRecord;
+          setRecord(data);
+          
+          // Auto-generate AI advice if pending and not already generating
+          if (data.aiStatus === 'pending' && !isGeneratingAI) {
+            handleGenerateAI(data);
           }
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `records/${id}`);
-        } finally {
-          setLoading(false);
+        } else {
+          setRecord(null);
         }
-      };
-      fetchRecord();
+        setLoading(false);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, `records/${id}`);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
     }
   }, [id, user]);
+
+  const handleGenerateAI = async (currentRecord: CoffeeRecord) => {
+    if (isGeneratingAI) return;
+    setIsGeneratingAI(true);
+    
+    try {
+      const advice = await generateCoffeeAdvice(currentRecord.beansName, currentRecord.roastLevel || '');
+      const docRef = doc(db, 'records', id!);
+      await updateDoc(docRef, {
+        aiAdvice: advice,
+        aiStatus: 'completed'
+      });
+    } catch (error) {
+      console.error("AI Generation failed:", error);
+      const docRef = doc(db, 'records', id!);
+      await updateDoc(docRef, { aiStatus: 'error' });
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
 
   const handleDelete = async () => {
     try {
@@ -258,6 +285,56 @@ export default function RecordDetail({ user }: { user: User }) {
               )}
               {record.tastingNotes && (
                 <p className="text-stone-600 whitespace-pre-wrap leading-relaxed">{record.tastingNotes}</p>
+              )}
+            </div>
+          )}
+
+          {/* AI Advice */}
+          {(record.aiStatus === 'pending' || record.aiStatus === 'error' || record.aiAdvice) && (
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Sparkles className="w-12 h-12 text-stone-900" />
+              </div>
+              
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  AI解説
+                </h3>
+                {record.aiStatus === 'error' && (
+                  <button 
+                    onClick={() => handleGenerateAI(record)}
+                    className="text-xs font-bold text-stone-400 hover:text-stone-900 flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" /> 再試行
+                  </button>
+                )}
+                {record.aiAdvice && !isGeneratingAI && (
+                  <button 
+                    onClick={() => handleGenerateAI(record)}
+                    className="text-xs font-bold text-stone-400 hover:text-stone-900 flex items-center gap-1"
+                    title="アドバイスを再生成"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {isGeneratingAI || record.aiStatus === 'pending' ? (
+                <div className="flex flex-col items-center justify-center py-8 text-stone-400">
+                  <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                  <p className="text-sm font-medium">AIがアドバイスを生成中...</p>
+                </div>
+              ) : record.aiStatus === 'error' ? (
+                <div className="py-4 text-center">
+                  <p className="text-sm text-stone-400">アドバイスの生成に失敗しました。</p>
+                </div>
+              ) : (
+                <div className="max-w-none">
+                  <p className="text-stone-600 whitespace-pre-wrap leading-relaxed text-sm">
+                    {record.aiAdvice}
+                  </p>
+                </div>
               )}
             </div>
           )}

@@ -29,4 +29,8 @@ export interface CoffeeRecord {
   customGrindSize?: string;
   customWaterAmount?: number;
   customBeansAmount?: number;
+  
+  // AI Advice
+  aiAdvice?: string | null;
+  aiStatus?: 'pending' | 'completed' | 'error';
 }
