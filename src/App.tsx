@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDocFromServer } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { generateAppIcon } from './services/iconService';
 import AuthScreen from './components/AuthScreen';
 import Dashboard from './components/Dashboard';
 import RecordForm from './components/RecordForm';
