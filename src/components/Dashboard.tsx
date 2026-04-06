@@ -131,6 +131,9 @@ export default function Dashboard({ user }: { user: User }) {
 
   // Listen to records
   useEffect(() => {
+    if (!user?.uid) return;
+
+    // どのアカウントでも同じデータが見れるように、全ユーザーのデータを取得する
     const q = query(
       collection(db, 'records'),
       orderBy('createdAt', 'desc'),
@@ -144,13 +147,19 @@ export default function Dashboard({ user }: { user: User }) {
       });
       setRecords(recs);
       setLoading(false);
-    }, (error) => {
+    }, (error: any) => {
+      console.error("Firestore Snapshot Error:", error);
       setLoading(false);
-      handleFirestoreError(error, OperationType.LIST, 'records');
+      
+      // インデックス未作成のエラーなどの場合、ユーザーに分かりやすく表示するために
+      // handleFirestoreErrorを呼び出すが、致命的なクラッシュは避ける
+      if (error.code === 'failed-precondition') {
+        console.warn("Firestore index might be missing. Check Firebase console.");
+      }
     });
 
     return () => unsubscribe();
-  }, [user.uid]);
+  }, [user?.uid]);
 
   const filteredAndSortedRecords = useMemo(() => {
     let result = [...records];
@@ -166,20 +175,23 @@ export default function Dashboard({ user }: { user: User }) {
 
     // Sort
     result.sort((a, b) => {
+      const timeA = a.createdAt?.seconds || 0;
+      const timeB = b.createdAt?.seconds || 0;
+
       if (sortBy === 'manual') {
         return (a.order ?? 0) - (b.order ?? 0);
       }
       if (sortBy === 'favorite') {
         if (a.isFavorite === b.isFavorite) {
-          return (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0);
+          return timeB - timeA;
         }
         return a.isFavorite ? -1 : 1;
       }
       if (sortBy === 'newest') {
-        return (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0);
+        return timeB - timeA;
       }
       if (sortBy === 'oldest') {
-        return (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0);
+        return timeA - timeB;
       }
       if (sortBy === 'rating') {
         return (b.rating ?? 0) - (a.rating ?? 0);

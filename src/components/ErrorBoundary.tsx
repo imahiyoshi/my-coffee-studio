@@ -70,7 +70,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
                 )}
               </p>
 
-              {process.env.NODE_ENV !== 'production' && this.state.errorInfo && (
+              {this.state.errorInfo && (
                 <div className="mb-8 text-left">
                   <details className="bg-stone-100 rounded-xl p-4 cursor-pointer">
                     <summary className="text-xs font-bold text-stone-500 uppercase tracking-wider select-none">

@@ -78,15 +78,6 @@ export const signInWithGoogle = async () => {
   }
 };
 
-export const signInWithGoogleRedirect = async () => {
-  try {
-    await signInWithRedirect(auth, googleProvider);
-  } catch (error) {
-    console.error("Error signing in with Google Redirect", error);
-    throw error;
-  }
-};
-
 export const logout = async () => {
   try {
     await signOut(auth);

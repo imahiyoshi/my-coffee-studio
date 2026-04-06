@@ -83,7 +83,7 @@ service cloud.firestore {
 
     match /records/{recordId} {
       allow get: if isAuthenticated();
-      allow list: if isAuthenticated();
+      allow list: if isAuthenticated() && request.query.limit <= 100;
       allow create: if isAuthenticated() && (
         request.resource.data.userId == request.auth.uid
       ) && isValidRecord(request.resource.data) && uidUnchanged();

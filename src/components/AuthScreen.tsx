@@ -1,33 +1,21 @@
 import { useState } from 'react';
-import { signInWithGoogle, signInWithGoogleRedirect } from '../firebase';
+import { signInWithGoogle } from '../firebase';
 import Logo from './Logo';
 
 export default function AuthScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [showRedirectOption, setShowRedirectOption] = useState(false);
 
   const handleLogin = async () => {
     try {
       setErrorMsg(null);
-      setShowRedirectOption(false);
       await signInWithGoogle();
     } catch (error: any) {
       console.error("Login Error:", error);
-      if (error.code === 'auth/popup-blocked') {
-        setErrorMsg("ブラウザのポップアップがブロックされました。Safariをお使いの場合は、設定で「ポップアップブロック」をオフにするか、下のボタンから別の方法をお試しください。");
-        setShowRedirectOption(true);
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/web-storage-unsupported') {
+        setErrorMsg("ブラウザのセキュリティ設定によりログイン画面が開けませんでした。右上の「新しいタブで開く」アイコン（四角に斜め矢印）をクリックして、アプリを別タブで開いてから再度ログインをお試しください。");
       } else {
         setErrorMsg(error.message || "ログインに失敗しました。");
       }
-    }
-  };
-
-  const handleRedirectLogin = async () => {
-    try {
-      setErrorMsg(null);
-      await signInWithGoogleRedirect();
-    } catch (error: any) {
-      setErrorMsg(error.message || "ログインに失敗しました。");
     }
   };
 
@@ -58,15 +46,6 @@ export default function AuthScreen() {
             </svg>
             Googleでログイン
           </button>
-
-          {showRedirectOption && (
-            <button
-              onClick={handleRedirectLogin}
-              className="w-full bg-white border border-stone-200 text-stone-500 rounded-2xl py-4 px-4 text-sm font-medium hover:bg-stone-50 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-            >
-              別の方法でログインを試す
-            </button>
-          )}
         </div>
       </div>
     </div>

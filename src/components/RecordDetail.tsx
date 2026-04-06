@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { doc, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -16,7 +16,7 @@ export default function RecordDetail({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
-  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const isGeneratingRef = useRef(false);
 
   useEffect(() => {
     if (id) {
@@ -26,8 +26,8 @@ export default function RecordDetail({ user }: { user: User }) {
           const data = { id: docSnap.id, ...docSnap.data() } as CoffeeRecord;
           setRecord(data);
           
-          // Auto-generate AI advice if pending and not already generating
-          if (data.aiStatus === 'pending' && !isGeneratingAI) {
+          // AIアドバイスが未生成、または準備中の場合に自動実行
+          if ((!data.aiStatus || data.aiStatus === 'pending') && !data.aiAdvice && !isGeneratingRef.current) {
             handleGenerateAI(data);
           }
         } else {
@@ -44,22 +44,32 @@ export default function RecordDetail({ user }: { user: User }) {
   }, [id, user]);
 
   const handleGenerateAI = async (currentRecord: CoffeeRecord) => {
-    if (isGeneratingAI) return;
-    setIsGeneratingAI(true);
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
     
     try {
-      const advice = await generateCoffeeAdvice(currentRecord.beansName, currentRecord.roastLevel || '');
+      // 状態を「生成中」に更新
       const docRef = doc(db, 'records', id!);
+      await updateDoc(docRef, { aiStatus: 'pending' });
+
+      // AIアドバイスを生成
+      const advice = await generateCoffeeAdvice(currentRecord.beansName, currentRecord.roastLevel || '');
+      
+      // 生成結果を保存
       await updateDoc(docRef, {
         aiAdvice: advice,
         aiStatus: 'completed'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Generation failed:", error);
       const docRef = doc(db, 'records', id!);
-      await updateDoc(docRef, { aiStatus: 'error' });
+      // エラー内容を保存して画面に表示できるようにする
+      await updateDoc(docRef, { 
+        aiStatus: 'error',
+        aiAdvice: error.message || "エラーが発生しました。"
+      });
     } finally {
-      setIsGeneratingAI(false);
+      isGeneratingRef.current = false;
     }
   };
 
@@ -290,7 +300,7 @@ export default function RecordDetail({ user }: { user: User }) {
           )}
 
           {/* AI Advice */}
-          {(record.aiStatus === 'pending' || record.aiStatus === 'error' || record.aiAdvice) && (
+          {(record.aiStatus === 'pending' || record.aiStatus === 'error' || record.aiAdvice || !record.aiStatus) && (
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <Sparkles className="w-12 h-12 text-stone-900" />
@@ -309,7 +319,7 @@ export default function RecordDetail({ user }: { user: User }) {
                     <RefreshCw className="w-3 h-3" /> 再試行
                   </button>
                 )}
-                {record.aiAdvice && !isGeneratingAI && (
+                {record.aiAdvice && !isGeneratingRef.current && (
                   <button 
                     onClick={() => handleGenerateAI(record)}
                     className="text-xs font-bold text-stone-400 hover:text-stone-900 flex items-center gap-1"
@@ -320,14 +330,15 @@ export default function RecordDetail({ user }: { user: User }) {
                 )}
               </div>
 
-              {isGeneratingAI || record.aiStatus === 'pending' ? (
+              {isGeneratingRef.current || record.aiStatus === 'pending' ? (
                 <div className="flex flex-col items-center justify-center py-8 text-stone-400">
                   <Loader2 className="w-8 h-8 animate-spin mb-3" />
                   <p className="text-sm font-medium">AIがアドバイスを生成中...</p>
                 </div>
               ) : record.aiStatus === 'error' ? (
                 <div className="py-4 text-center">
-                  <p className="text-sm text-stone-400">アドバイスの生成に失敗しました。</p>
+                  <p className="text-sm text-stone-500 mb-2">アドバイスの生成に失敗しました。</p>
+                  <p className="text-xs text-stone-400 px-4">{record.aiAdvice}</p>
                 </div>
               ) : (
                 <div className="max-w-none">
