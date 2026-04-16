@@ -96,7 +96,7 @@ ${pastRecs || 'なし'}
 }
 `;
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
@@ -129,7 +129,11 @@ ${pastRecs || 'なし'}
       }
     } catch (error: any) {
       console.error("Recommendation generation error:", error);
-      setErrorMsg(error.message || "生成中にエラーが発生しました。");
+      let message = error.message || "生成中にエラーが発生しました。";
+      if (message.includes("API key is missing")) {
+        message = "AIと通信するためのAPIキーが正しく読み込めていません。システムの設定や状況をご確認いただくか、時間をおいて再試行してください。";
+      }
+      setErrorMsg(message);
     } finally {
       setGenerating(false);
     }
