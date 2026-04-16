@@ -18,14 +18,15 @@ export default function RecommendationModal({ user, records, isOpen, onClose }: 
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
 
+    // 複合インデックスによるエラーを避けるため、フィルタリングのみFirestoreで行う
     const q = query(
       collection(db, 'recommendations'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -33,9 +34,17 @@ export default function RecommendationModal({ user, records, isOpen, onClose }: 
       snapshot.forEach((doc) => {
         recs.push({ id: doc.id, ...doc.data() } as Recommendation);
       });
+      // メモリ上で新しい順にソート
+      recs.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+      
       setRecommendations(recs);
       setLoading(false);
     }, (error) => {
+      console.error("Fetch recommendations error:", error);
       handleFirestoreError(error, OperationType.GET, 'recommendations');
       setLoading(false);
     });
@@ -53,6 +62,7 @@ export default function RecommendationModal({ user, records, isOpen, onClose }: 
   const handleGenerate = async () => {
     if (generating) return;
     setGenerating(true);
+    setErrorMsg('');
 
     try {
       // 分析：評価が4以上、もしくはお気に入りの豆を「好きな豆」として抽出
@@ -98,7 +108,10 @@ ${pastRecs || 'なし'}
       });
 
       const jsonText = response.text || "{}";
-      const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      // Markdownブロックや余分なテキストを除去してJSON部分のみを抽出
+      const match = jsonText.match(/\{[\s\S]*\}/);
+      const cleanJson = match ? match[0] : "{}";
       const recData = JSON.parse(cleanJson);
 
       if (recData.name && recData.origin) {
@@ -111,9 +124,12 @@ ${pastRecs || 'なし'}
           estimatedPrice: recData.estimatedPrice || '',
           createdAt: serverTimestamp()
         });
+      } else {
+        throw new Error("AIが正しい情報を生成できませんでした。");
       }
-    } catch (error) {
-      console.error("Recommendation generation error", error);
+    } catch (error: any) {
+      console.error("Recommendation generation error:", error);
+      setErrorMsg(error.message || "生成中にエラーが発生しました。");
     } finally {
       setGenerating(false);
     }
@@ -164,11 +180,21 @@ ${pastRecs || 'なし'}
               </button>
             </div>
 
-            {generating && recommendations.length === 0 ? (
+            {generating ? (
                <div className="bg-white rounded-2xl p-8 border border-stone-100 flex flex-col items-center justify-center text-stone-400 shadow-sm">
                  <Loader2 className="w-8 h-8 animate-spin mb-4 text-amber-500" />
                  <p className="font-medium">好みを分析し、最新情報を検索中...</p>
                  <p className="text-xs mt-2 text-stone-400">※初回は少し時間がかかります</p>
+               </div>
+            ) : errorMsg ? (
+               <div className="bg-white rounded-2xl p-8 border border-red-100 flex flex-col items-center justify-center text-red-500 shadow-sm">
+                 <p className="font-medium mb-4">{errorMsg}</p>
+                 <button 
+                   onClick={handleGenerate} 
+                   className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-bold transition-colors"
+                 >
+                   もう一度試す
+                 </button>
                </div>
             ) : recommendations[0] ? (
               <div className="bg-white rounded-2xl p-5 border-2 border-amber-100 shadow-sm relative overflow-hidden group">
@@ -196,7 +222,17 @@ ${pastRecs || 'なし'}
                   </p>
                 </div>
               </div>
-            ) : null}
+            ) : (
+               <div className="bg-white rounded-2xl p-8 border border-stone-100 flex flex-col items-center justify-center text-stone-400 shadow-sm">
+                 <p className="font-medium mb-4">まだ提案がありません</p>
+                 <button 
+                   onClick={handleGenerate} 
+                   className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg font-bold transition-colors"
+                 >
+                   診断を開始する
+                 </button>
+               </div>
+            )}
           </div>
 
           {/* 履歴リスト */}
