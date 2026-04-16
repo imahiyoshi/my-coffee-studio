@@ -76,6 +76,10 @@ export default function RecommendationModal({ user, records, isOpen, onClose }: 
       // 過去に提案した豆のリスト（同じ豆を避けるため）
       const pastRecs = recommendations.map(r => r.name).join(', ');
 
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error("現在、APIキーが正しくセットアップされていないようです。AI Studioの右上にある「Settings」→「Secrets」から APIキー（GEMINI_API_KEY）が登録されているかご確認ください。");
+      }
+
       const prompt = `
 あなたはプロのバリスタです。ユーザーのコーヒーの好みに合わせて、新しいおすすめのコーヒー豆を**1つ**提案してください。
 カルディ、コストコ、ブルックスなどの有名店や、専門店、オンライン通販などで購入できる豆を幅広く検索して選んでください。
@@ -93,15 +97,14 @@ ${pastRecs || 'なし'}
   "origin": "産地（国や地域）",
   "taste": "味の特徴、なぜおすすめなのか（80文字程度）",
   "estimatedPrice": "大体の価格・相場（例: 200g 1200円程度）"
-}
-`;
+}`;
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
-          // Google検索グラウンディングを有効化して最新情報を取得
+          // 指定どおりgemini-2.5-flashを使用し、最新情報の検索を有効化
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json"
         }
@@ -131,7 +134,7 @@ ${pastRecs || 'なし'}
       console.error("Recommendation generation error:", error);
       let message = error.message || "生成中にエラーが発生しました。";
       if (message.includes("API key is missing")) {
-        message = "AIと通信するためのAPIキーが正しく読み込めていません。システムの設定や状況をご確認いただくか、時間をおいて再試行してください。";
+        message = "現在、無料のAPIキーが正しくセットアップされていないようです。AI Studioの右上にある「Settings」→「Secrets」から APIキー（GEMINI_API_KEY）が登録されているかご確認ください。";
       }
       setErrorMsg(message);
     } finally {

@@ -35,7 +35,13 @@ export default function RecordDetail({ user }: { user: User }) {
     }
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      if (!process.env.GEMINI_API_KEY) {
+        console.warn("API key is missing in RecordDetail");
+        isGeneratingRef.current = false;
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: `
