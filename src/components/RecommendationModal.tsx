@@ -105,19 +105,24 @@ ${pastRecs || 'なし'}
         contents: prompt,
         config: {
           // 指定どおりgemini-2.5-flashを使用し、最新情報の検索を有効化
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json"
+          tools: [{ googleSearch: {} }]
         }
       });
 
       const jsonText = response.text || "{}";
       
-      // Markdownブロックや余分なテキストを除去してJSON部分のみを抽出
-      const match = jsonText.match(/\{[\s\S]*\}/);
-      const cleanJson = match ? match[0] : "{}";
-      const recData = JSON.parse(cleanJson);
+      // JSONを安全にパース
+      let recData;
+      try {
+        const match = jsonText.match(/\{[\s\S]*\}/);
+        const cleanJson = match ? match[0] : jsonText;
+        recData = JSON.parse(cleanJson);
+      } catch (parseError) {
+        console.error("JSON parse error, raw output:", jsonText);
+        throw new Error("AIの提案フォーマットが不正でした。もう一度お試しください。");
+      }
 
-      if (recData.name && recData.origin) {
+      if (recData && recData.name && recData.origin) {
         const newRef = doc(collection(db, 'recommendations'));
         await setDoc(newRef, {
           userId: user.uid,
