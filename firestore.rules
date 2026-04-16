@@ -49,6 +49,16 @@ service cloud.firestore {
       return listData is list && listData.size() <= 50;
     }
 
+    function isValidRecommendation(data) {
+      return hasRequiredFields(['userId', 'createdAt', 'name', 'origin', 'taste', 'estimatedPrice']) &&
+             data.userId is string && data.userId.size() > 0 &&
+             data.createdAt is timestamp &&
+             data.name is string && data.name.size() <= 200 &&
+             data.origin is string && data.origin.size() <= 200 &&
+             data.taste is string && data.taste.size() <= 1000 &&
+             data.estimatedPrice is string && data.estimatedPrice.size() <= 200;
+    }
+
     function isValidRecord(data) {
       return hasRequiredFields(['userId', 'createdAt', 'beansName', 'mode']) &&
              data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
@@ -88,6 +98,12 @@ service cloud.firestore {
         request.resource.data.userId == request.auth.uid
       ) && isValidRecord(request.resource.data) && uidUnchanged();
       allow update: if isAuthenticated() && isValidRecord(request.resource.data) && uidNotModified();
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /recommendations/{recId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidRecommendation(request.resource.data);
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
   }

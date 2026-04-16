@@ -3,6 +3,16 @@ export type BrewMode = 'twinbird' | 'other';
 export type TbTemperature = '83' | '90';
 export type TbGrindSize = 'coarse' | 'medium' | 'fine';
 
+export interface Recommendation {
+  id: string;
+  userId: string;
+  createdAt: any;
+  name: string;
+  origin: string;
+  taste: string;
+  estimatedPrice: string;
+}
+
 export interface CoffeeRecord {
   id: string;
   userId: string;

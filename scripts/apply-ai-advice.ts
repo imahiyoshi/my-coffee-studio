@@ -1,12 +1,11 @@
 import * as admin from 'firebase-admin';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 // Initialize Firebase Admin
-// Make sure to set GOOGLE_APPLICATION_CREDENTIALS or provide service account key
 admin.initializeApp();
 
 const db = admin.firestore();
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 async function applyAIAdvice() {
   console.log('Starting AI Advice retroactive application...');
@@ -32,8 +31,10 @@ async function applyAIAdvice() {
 
     console.log(`Processing record ${doc.id}: ${beansName}...`);
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const prompt = `
+    try {
+      const response = await genAI.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `
 以下のコーヒー豆の情報に基づいて、抽出アドバイスを生成してください。
 
 豆の名前: ${beansName}
@@ -41,14 +42,25 @@ async function applyAIAdvice() {
 
 指示事項:
 1. Twinbird全自動コーヒーメーカー（温度は83度か90度、挽き目は粗・中・細の3段階）を使用することを前提とする。
-2. 対象のコーヒー豆の一般的な特徴を簡潔に解説する。
-3. 対象の焙煎度に応じた、Twinbirdでの推奨設定（温度と挽き目）とその理由を提示する。
-4. 簡潔で親しみやすいトーンで回答する。
-`;
+2. 全体的に文章を極めて短く、簡潔にまとめること。
+3. 構成は以下の通りとする：
+   - ### [豆の名前] の特徴
+     豆の一般的な特徴を1〜2文で。
+   - ### 推奨設定
+     推奨温度と推奨挽き目のみを記載（理由は不要）。
+     例：
+     - 推奨温度: 90度
+     - 推奨挽き目: 中
+   - ### アドバイス
+     具体的な調整のヒントを60文字以上150文字以内で記載。
+     「味を見て調整してください」のような抽象的な表現は禁止し、
+     「苦味が強い場合は温度を83度に下げる」「酸味を立たせたい場合は挽き目を細かくする」など、
+     具体的かつ実践的なアクションを提示すること。
+4. 挨拶や結びの言葉は省き、事実のみを伝える。
+`,
+      });
 
-    try {
-      const result = await model.generateContent(prompt);
-      const advice = result.response.text();
+      const advice = response.text;
 
       await doc.ref.update({
         aiAdvice: advice,

@@ -4,10 +4,10 @@ import { doc, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { CoffeeRecord } from '../types';
-import { generateCoffeeAdvice } from '../services/aiService';
 import { ArrowLeft, Edit2, Trash2, Image as ImageIcon, Heart, X, AlertTriangle, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import Logo from './Logo';
 import { format } from 'date-fns';
+import { GoogleGenAI } from '@google/genai';
 
 export default function RecordDetail({ user }: { user: User }) {
   const { id } = useParams();
@@ -19,17 +19,77 @@ export default function RecordDetail({ user }: { user: User }) {
   const isGeneratingRef = useRef(false);
 
   useEffect(() => {
+    if (record && record.aiStatus === 'pending' && !isGeneratingRef.current) {
+      generateAIAdvice();
+    }
+  }, [record?.aiStatus, record?.beansName]);
+
+  const generateAIAdvice = async () => {
+    if (!record || isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
+
+    const { beansName, roastLevel } = record;
+    if (!beansName) {
+      isGeneratingRef.current = false;
+      return;
+    }
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `
+以下のコーヒー豆の情報に基づいて、抽出アドバイスを生成してください。
+
+豆の名前: ${beansName}
+焙煎度: ${roastLevel || '不明'}
+
+指示事項:
+1. Twinbird全自動コーヒーメーカー（温度は83度か90度、挽き目は粗・中・細の3段階）を使用することを前提とする。
+2. 全体的に文章を極めて短く、簡潔にまとめること。
+3. 構成は以下の通りとする：
+   - ### [豆の名前] の特徴
+     豆の一般的な特徴を1〜2文で。
+   - ### 推奨設定
+     推奨温度と推奨挽き目のみを記載（理由は不要）。
+     例：
+     - 推奨温度: 90度
+     - 推奨挽き目: 中
+   - ### アドバイス
+     具体的な調整のヒントを60文字以上150文字以内で記載。
+     「味を見て調整してください」のような抽象的な表現は禁止し、
+     「苦味が強い場合は温度を83度に下げる」「酸味を立たせたい場合は挽き目を細かくする」など、
+     具体的かつ実践的なアクションを提示すること。
+4. 挨拶や結びの言葉は省き、事実のみを伝える。
+`,
+      });
+
+      const advice = response.text;
+      if (advice) {
+        const docRef = doc(db, 'records', id!);
+        await updateDoc(docRef, {
+          aiAdvice: advice,
+          aiStatus: 'completed'
+        });
+      }
+    } catch (error) {
+      console.error('Error generating AI advice:', error);
+      const docRef = doc(db, 'records', id!);
+      await updateDoc(docRef, {
+        aiStatus: 'error'
+      });
+    } finally {
+      isGeneratingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
     if (id) {
       const docRef = doc(db, 'records', id);
       const unsubscribe = onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = { id: docSnap.id, ...docSnap.data() } as CoffeeRecord;
           setRecord(data);
-          
-          // AIアドバイスが未生成、または準備中の場合に自動実行
-          if ((!data.aiStatus || data.aiStatus === 'pending') && !data.aiAdvice && !isGeneratingRef.current) {
-            handleGenerateAI(data);
-          }
         } else {
           setRecord(null);
         }
@@ -42,36 +102,6 @@ export default function RecordDetail({ user }: { user: User }) {
       return () => unsubscribe();
     }
   }, [id, user]);
-
-  const handleGenerateAI = async (currentRecord: CoffeeRecord) => {
-    if (isGeneratingRef.current) return;
-    isGeneratingRef.current = true;
-    
-    try {
-      // 状態を「生成中」に更新
-      const docRef = doc(db, 'records', id!);
-      await updateDoc(docRef, { aiStatus: 'pending' });
-
-      // AIアドバイスを生成
-      const advice = await generateCoffeeAdvice(currentRecord.beansName, currentRecord.roastLevel || '');
-      
-      // 生成結果を保存
-      await updateDoc(docRef, {
-        aiAdvice: advice,
-        aiStatus: 'completed'
-      });
-    } catch (error: any) {
-      console.error("AI Generation failed:", error);
-      const docRef = doc(db, 'records', id!);
-      // エラー内容を保存して画面に表示できるようにする
-      await updateDoc(docRef, { 
-        aiStatus: 'error',
-        aiAdvice: error.message || "エラーが発生しました。"
-      });
-    } finally {
-      isGeneratingRef.current = false;
-    }
-  };
 
   const handleDelete = async () => {
     try {
@@ -96,6 +126,17 @@ export default function RecordDetail({ user }: { user: User }) {
       handleFirestoreError(error, OperationType.UPDATE, `records/${id}`);
     } finally {
       setIsTogglingFavorite(false);
+    }
+  };
+
+  const handleRegenerateAdvice = async () => {
+    if (!record || record.aiStatus === 'pending') return;
+    try {
+      const docRef = doc(db, 'records', id!);
+      await updateDoc(docRef, { aiStatus: 'pending' });
+      setRecord({ ...record, aiStatus: 'pending' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `records/${id}`);
     }
   };
 
@@ -300,48 +341,41 @@ export default function RecordDetail({ user }: { user: User }) {
           )}
 
           {/* AI Advice */}
-          {(record.aiStatus === 'pending' || record.aiStatus === 'error' || record.aiAdvice || !record.aiStatus) && (
+          {(record.aiStatus === 'pending' || record.aiStatus === 'error' || record.aiAdvice) && (
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <Sparkles className="w-12 h-12 text-stone-900" />
               </div>
               
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 relative z-10">
                 <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-500" />
                   AI解説
                 </h3>
-                {record.aiStatus === 'error' && (
+                {(record.aiStatus === 'completed' || record.aiStatus === 'error') && (
                   <button 
-                    onClick={() => handleGenerateAI(record)}
-                    className="text-xs font-bold text-stone-400 hover:text-stone-900 flex items-center gap-1"
-                  >
-                    <RefreshCw className="w-3 h-3" /> 再試行
-                  </button>
-                )}
-                {record.aiAdvice && !isGeneratingRef.current && (
-                  <button 
-                    onClick={() => handleGenerateAI(record)}
-                    className="text-xs font-bold text-stone-400 hover:text-stone-900 flex items-center gap-1"
-                    title="アドバイスを再生成"
+                    onClick={handleRegenerateAdvice}
+                    className="text-xs flex items-center gap-1 text-stone-500 hover:text-stone-900 transition-colors bg-stone-100 hover:bg-stone-200 px-2 py-1 rounded-md"
                   >
                     <RefreshCw className="w-3 h-3" />
+                    再生成
                   </button>
                 )}
               </div>
 
-              {isGeneratingRef.current || record.aiStatus === 'pending' ? (
-                <div className="flex flex-col items-center justify-center py-8 text-stone-400">
+              {record.aiStatus === 'pending' ? (
+                <div className="flex flex-col items-center justify-center py-8 text-stone-400 relative z-10">
                   <Loader2 className="w-8 h-8 animate-spin mb-3" />
                   <p className="text-sm font-medium">AIがアドバイスを生成中...</p>
                 </div>
               ) : record.aiStatus === 'error' ? (
-                <div className="py-4 text-center">
-                  <p className="text-sm text-stone-500 mb-2">アドバイスの生成に失敗しました。</p>
-                  <p className="text-xs text-stone-400 px-4">{record.aiAdvice}</p>
+                <div className="flex flex-col items-center justify-center py-6 text-red-500 relative z-10">
+                  <AlertTriangle className="w-8 h-8 mb-2 opacity-80" />
+                  <p className="text-sm font-medium">アドバイスの生成に失敗しました。</p>
+                  <p className="text-xs mt-1 opacity-80">右上の「再生成」ボタンをお試しください。</p>
                 </div>
               ) : (
-                <div className="max-w-none">
+                <div className="max-w-none relative z-10">
                   <p className="text-stone-600 whitespace-pre-wrap leading-relaxed text-sm">
                     {record.aiAdvice}
                   </p>

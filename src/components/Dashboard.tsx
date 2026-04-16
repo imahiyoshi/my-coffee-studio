@@ -4,9 +4,10 @@ import { collection, query, where, orderBy, onSnapshot, doc, writeBatch, limit }
 import { db, logout, handleFirestoreError, OperationType } from '../firebase';
 import { CoffeeRecord } from '../types';
 import { Link } from 'react-router-dom';
-import { Plus, LogOut, Image as ImageIcon, Search, ArrowUpDown, GripVertical, Heart } from 'lucide-react';
+import { Plus, LogOut, Image as ImageIcon, Search, ArrowUpDown, GripVertical, Heart, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import Logo from './Logo';
+import RecommendationModal from './RecommendationModal';
 
 // Dnd Kit Imports
 import {
@@ -117,6 +118,7 @@ export default function Dashboard({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [showRecs, setShowRecs] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -239,7 +241,14 @@ export default function Dashboard({ user }: { user: User }) {
         <div className="flex items-center gap-2">
           <Logo />
         </div>
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <button 
+            onClick={() => setShowRecs(true)} 
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 rounded-full text-xs sm:text-sm font-bold transition-colors shadow-sm"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>AIおすすめ</span>
+          </button>
           <button onClick={logout} className="p-2 text-stone-500 hover:text-stone-900 transition-colors" title="ログアウト">
             <LogOut className="w-5 h-5" />
           </button>
@@ -247,6 +256,7 @@ export default function Dashboard({ user }: { user: User }) {
       </header>
 
       <main className="p-4">
+
         {/* Search and Sort Controls */}
         <div className="mb-6 space-y-3">
           <div className="relative">
@@ -332,6 +342,13 @@ export default function Dashboard({ user }: { user: User }) {
       >
         <Plus className="w-6 h-6" />
       </Link>
+
+      <RecommendationModal 
+        user={user} 
+        records={records} 
+        isOpen={showRecs} 
+        onClose={() => setShowRecs(false)} 
+      />
     </div>
   );
 }
