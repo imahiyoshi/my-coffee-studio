@@ -78,11 +78,23 @@ export default function RecordDetail({ user }: { user: User }) {
           aiStatus: 'completed'
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating AI advice:', error);
+      const errorStr = (error.message || "").toLowerCase();
+      let aiAdviceErrorMsg = '';
+
+      if (
+        errorStr.includes("api key is missing") || 
+        errorStr.includes("api_key_invalid") || 
+        errorStr.includes("api key not valid")
+      ) {
+        aiAdviceErrorMsg = "入力されたAPIキーが無効です。Settings → Secrets (GEMINI_API_KEY)で「AIza...」から始まるキーを設定してください。";
+      }
+
       const docRef = doc(db, 'records', id!);
       await updateDoc(docRef, {
-        aiStatus: 'error'
+        aiStatus: 'error',
+        aiAdvice: aiAdviceErrorMsg // Store the specific error message to show to the user
       });
     } finally {
       isGeneratingRef.current = false;
@@ -377,8 +389,8 @@ export default function RecordDetail({ user }: { user: User }) {
               ) : record.aiStatus === 'error' ? (
                 <div className="flex flex-col items-center justify-center py-6 text-red-500 relative z-10">
                   <AlertTriangle className="w-8 h-8 mb-2 opacity-80" />
-                  <p className="text-sm font-medium">アドバイスの生成に失敗しました。</p>
-                  <p className="text-xs mt-1 opacity-80">右上の「再生成」ボタンをお試しください。</p>
+                  <p className="text-sm font-medium">{record.aiAdvice || "アドバイスの生成に失敗しました。"}</p>
+                  <p className="text-xs mt-1 opacity-80 text-center">右上の「再生成」ボタンをお試しください。</p>
                 </div>
               ) : (
                 <div className="max-w-none relative z-10">

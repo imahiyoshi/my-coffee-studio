@@ -121,8 +121,15 @@ ${pastRecs || 'なし'}
     } catch (error: any) {
       console.error("Recommendation generation error:", error);
       let message = error.message || "生成中にエラーが発生しました。";
-      if (message === "API_KEY_MISSING" || (typeof message === 'string' && message.includes("API key is missing"))) {
-        message = "現在、APIキーが正しくセットアップされていないようです。AI Studioの右上にある「Settings」→「Secrets」から APIキー（GEMINI_API_KEY）が正しく登録されているか再度ご確認ください。";
+      
+      const errorStr = (error.message || "").toLowerCase();
+      if (
+        message === "API_KEY_MISSING" || 
+        errorStr.includes("api key is missing") || 
+        errorStr.includes("api_key_invalid") || 
+        errorStr.includes("api key not valid")
+      ) {
+        message = "入力されたAPIキーが無効です。AI Studioの右上「Settings」→「Secrets」のGEMINI_API_KEYで、「AIza...」から始まる本当に有効なAPIキーを設定できているか確認してください。";
       }
       setErrorMsg(message);
     } finally {
