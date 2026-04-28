@@ -5,13 +5,16 @@ import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  const rawKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || '';
+  const cleanKey = rawKey.replace(/['"]/g, '').trim();
+  
   return {
     plugins: [react(), tailwindcss()],
     optimizeDeps: {
       include: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'lucide-react', 'date-fns'],
     },
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || ''),
+      'process.env.GEMINI_API_KEY': JSON.stringify(cleanKey),
     },
     resolve: {
       alias: {

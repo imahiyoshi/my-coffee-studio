@@ -33,8 +33,8 @@ export default function RecommendationModal({ user, records, isOpen, onClose }: 
         recs.push({ id: doc.id, ...doc.data() } as Recommendation);
       });
       recs.sort((a, b) => {
-        const timeA = a.createdAt?.seconds || 0;
-        const timeB = b.createdAt?.seconds || 0;
+        const timeA = a.createdAt?.seconds || Number.MAX_SAFE_INTEGER;
+        const timeB = b.createdAt?.seconds || Number.MAX_SAFE_INTEGER;
         return timeB - timeA;
       });
       
@@ -73,7 +73,7 @@ export default function RecommendationModal({ user, records, isOpen, onClose }: 
 好きな豆: ${likedBeans || 'まだデータがありませんが、一般的な万人受けする美味しい豆をお願いします'}
 好みのテイスト: ${tasteSummary || '特に指定なし'}
 
-[除外リスト (過去に提案済みのため避けてください)]
+[除外リスト (絶対に以下の豆とは異なるものを提案してください)]
 ${pastRecs || 'なし'}
 
 最新の情報に基づき、以下のJSONフォーマットで出力してください。Markdownのコードブロック（\`\`\`json など）を含めず、純粋なJSONテキストのみを出力してください。
@@ -129,7 +129,9 @@ ${pastRecs || 'なし'}
         errorStr.includes("api_key_invalid") || 
         errorStr.includes("api key not valid")
       ) {
-        message = "入力されたAPIキーが無効です。AI Studioの右上「Settings」→「Secrets」のGEMINI_API_KEYで、「AIza...」から始まる本当に有効なAPIキーを設定できているか確認してください。";
+        const keyVal = process.env.GEMINI_API_KEY || '';
+        const keyInfo = keyVal ? `(現在のキー先頭: ${keyVal.substring(0, 4)}...)` : "(キーがセットされていません)";
+        message = `入力されたAPIキーが無効です ${keyInfo}。右上の「Settings」→「Secrets」のGEMINI_API_KEYをご確認ください。空白や改行が入っていないかも確認してください。変更後は一度ページをリロードしてみてください。`;
       }
       setErrorMsg(message);
     } finally {

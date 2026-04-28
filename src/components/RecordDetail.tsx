@@ -88,7 +88,9 @@ export default function RecordDetail({ user }: { user: User }) {
         errorStr.includes("api_key_invalid") || 
         errorStr.includes("api key not valid")
       ) {
-        aiAdviceErrorMsg = "入力されたAPIキーが無効です。Settings → Secrets (GEMINI_API_KEY)で「AIza...」から始まるキーを設定してください。";
+        const keyVal = process.env.GEMINI_API_KEY || '';
+        const keyInfo = keyVal ? `(現在のキー先頭: ${keyVal.substring(0, 4)}...)` : "(キーがセットされていません)";
+        aiAdviceErrorMsg = `入力されたAPIキーが無効です ${keyInfo}。右上のSettings → SecretsでGEMINI_API_KEYをご確認ください。`;
       }
 
       const docRef = doc(db, 'records', id!);
