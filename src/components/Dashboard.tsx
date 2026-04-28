@@ -152,12 +152,7 @@ export default function Dashboard({ user }: { user: User }) {
     }, (error: any) => {
       console.error("Firestore Snapshot Error:", error);
       setLoading(false);
-      
-      // インデックス未作成のエラーなどの場合、ユーザーに分かりやすく表示するために
-      // handleFirestoreErrorを呼び出すが、致命的なクラッシュは避ける
-      if (error.code === 'failed-precondition') {
-        console.warn("Firestore index might be missing. Check Firebase console.");
-      }
+      handleFirestoreError(error, OperationType.GET, 'records');
     });
 
     return () => unsubscribe();

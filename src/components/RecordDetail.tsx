@@ -359,48 +359,50 @@ export default function RecordDetail({ user }: { user: User }) {
           )}
 
           {/* AI Advice */}
-          {(record.aiStatus === 'pending' || record.aiStatus === 'error' || record.aiAdvice) && (
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Sparkles className="w-12 h-12 text-stone-900" />
-              </div>
-              
-              <div className="flex items-center justify-between mb-4 relative z-10">
-                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  AI解説
-                </h3>
-                {(record.aiStatus === 'completed' || record.aiStatus === 'error') && (
-                  <button 
-                    onClick={handleRegenerateAdvice}
-                    className="text-xs flex items-center gap-1 text-stone-500 hover:text-stone-900 transition-colors bg-stone-100 hover:bg-stone-200 px-2 py-1 rounded-md"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                    再生成
-                  </button>
-                )}
-              </div>
-
-              {record.aiStatus === 'pending' ? (
-                <div className="flex flex-col items-center justify-center py-8 text-stone-400 relative z-10">
-                  <Loader2 className="w-8 h-8 animate-spin mb-3" />
-                  <p className="text-sm font-medium">AIがアドバイスを生成中...</p>
-                </div>
-              ) : record.aiStatus === 'error' ? (
-                <div className="flex flex-col items-center justify-center py-6 text-red-500 relative z-10">
-                  <AlertTriangle className="w-8 h-8 mb-2 opacity-80" />
-                  <p className="text-sm font-medium">{record.aiAdvice || "アドバイスの生成に失敗しました。"}</p>
-                  <p className="text-xs mt-1 opacity-80 text-center">右上の「再生成」ボタンをお試しください。</p>
-                </div>
-              ) : (
-                <div className="max-w-none relative z-10">
-                  <p className="text-stone-600 whitespace-pre-wrap leading-relaxed text-sm">
-                    {record.aiAdvice}
-                  </p>
-                </div>
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 relative overflow-hidden mt-6">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Sparkles className="w-12 h-12 text-stone-900" />
+            </div>
+            
+            <div className="flex items-center justify-between mb-4 relative z-10">
+              <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                AI解説
+              </h3>
+              {(record.aiStatus === 'completed' || record.aiStatus === 'error' || !record.aiStatus) && (
+                <button 
+                  onClick={handleRegenerateAdvice}
+                  className="text-xs flex items-center gap-1 text-stone-500 hover:text-stone-900 transition-colors bg-stone-100 hover:bg-stone-200 px-2 py-1 rounded-md"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  {record.aiStatus === 'completed' ? '再生成' : '生成する'}
+                </button>
               )}
             </div>
-          )}
+
+            {record.aiStatus === 'pending' ? (
+              <div className="flex flex-col items-center justify-center py-8 text-stone-400 relative z-10">
+                <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                <p className="text-sm font-medium">AIがアドバイスを生成中...</p>
+              </div>
+            ) : record.aiStatus === 'error' ? (
+              <div className="flex flex-col items-center justify-center py-6 text-red-500 relative z-10">
+                <AlertTriangle className="w-8 h-8 mb-2 opacity-80" />
+                <p className="text-sm font-medium">{record.aiAdvice || "アドバイスの生成に失敗しました。"}</p>
+                <p className="text-xs mt-1 opacity-80 text-center">右上の「再生成」ボタンをお試しください。</p>
+              </div>
+            ) : record.aiAdvice ? (
+              <div className="max-w-none relative z-10">
+                <p className="text-stone-600 whitespace-pre-wrap leading-relaxed text-sm">
+                  {record.aiAdvice}
+                </p>
+              </div>
+            ) : (
+               <div className="flex flex-col items-center justify-center py-8 text-stone-400 relative z-10">
+                 <p className="text-sm font-medium">まだAI解説がありません。「生成する」ボタンを押すとアドバイスが作成されます。</p>
+               </div>
+            )}
+          </div>
         </div>
       </main>
 

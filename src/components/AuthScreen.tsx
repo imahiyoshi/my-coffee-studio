@@ -11,10 +11,16 @@ export default function AuthScreen() {
       await signInWithGoogle();
     } catch (error: any) {
       console.error("Login Error:", error);
-      if (error.code === 'auth/popup-blocked' || error.code === 'auth/web-storage-unsupported') {
+      if (
+        error.code === 'auth/popup-blocked' || 
+        error.code === 'auth/web-storage-unsupported' ||
+        error.message?.includes('popup')
+      ) {
         setErrorMsg("ブラウザのセキュリティ設定によりログイン画面が開けませんでした。右上の「新しいタブで開く」アイコン（四角に斜め矢印）をクリックして、アプリを別タブで開いてから再度ログインをお試しください。");
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        setErrorMsg("ログインがキャンセルされました。");
       } else {
-        setErrorMsg(error.message || "ログインに失敗しました。");
+        setErrorMsg(`${error.code || 'Error'}: ${error.message || "ログインに失敗しました。"}`);
       }
     }
   };
