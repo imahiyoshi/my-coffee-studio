@@ -1,10 +1,21 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const ALLOWED_FILES = [
   'package.json',
   'vite.config.ts',
-  'src/App.tsx'
+  'src/App.tsx',
+  'src/firebase.ts',
+  'src/types.ts',
+  'src/components/RecommendationModal.tsx',
+  'src/components/RecordDetail.tsx',
+  'src/components/RecordForm.tsx',
+  'src/components/Dashboard.tsx',
+  'src/components/AuthScreen.tsx',
+  'src/index.css',
+  'index.html',
+  'src/main.tsx',
+  '.env.example'
 ];
 
 // Read the metadata.json for accurate name/description
@@ -22,7 +33,7 @@ const fileContents = {};
 
 ALLOWED_FILES.forEach(relativePath => {
   try {
-    const fullPath = path.join('/', relativePath);
+    const fullPath = path.join(process.cwd(), relativePath);
     const content = fs.readFileSync(fullPath, 'utf8');
     fileContents[relativePath] = content;
   } catch (e) {
